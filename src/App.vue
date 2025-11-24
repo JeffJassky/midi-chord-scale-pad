@@ -24,6 +24,9 @@
               :key="note"
               class="white-key"
               :class="{ active: activeMidiNotes.has(note) }"
+              @pointerdown="pressPianoNote(note)"
+              @pointerup="releasePianoNote(note)"
+              @pointerleave="releasePianoNote(note)"
             >
               <span>{{ note }}</span>
             </div>
@@ -35,6 +38,9 @@
               class="black-key"
               :class="{ active: activeMidiNotes.has(note) }"
               :style="{ left: blackKeyLeft(idx) }"
+              @pointerdown.stop="pressPianoNote(note)"
+              @pointerup.stop="releasePianoNote(note)"
+              @pointerleave.stop="releasePianoNote(note)"
             >
               <span>{{ note }}</span>
             </div>
@@ -167,6 +173,7 @@ import {
   CHORD_WHEEL_ORDER,
   DEGREE_KEYS,
   NOTE_NAMES,
+  noteNameToMidi,
   type ChordQualityId,
   type NoteName,
   type ScaleType
@@ -192,6 +199,7 @@ const hoverQualityId = ref<ChordQualityId>('major');
 const lockedQualityId = ref<ChordQualityId | null>(null);
 const activeDegree = ref<number | null>(null);
 const heldMidi = ref<number[]>([]);
+const manualNotes = ref<Set<number>>(new Set());
 const lastChordName = ref<string>('Ready');
 
 const synth = new Synth();
@@ -209,10 +217,12 @@ const blackOffsets = [0.67, 1.67, 3.67, 4.67, 5.67]; // relative to white key in
 
 const activeMidiNotes = computed(() => {
   const set = new Set<NoteName>();
-  heldMidi.value.forEach((midi) => {
+  const pushNote = (midi: number) => {
     const note = NOTE_NAMES[midi % 12];
     set.add(note);
-  });
+  };
+  heldMidi.value.forEach(pushNote);
+  manualNotes.value.forEach(pushNote);
   return set;
 });
 
@@ -313,6 +323,28 @@ function releaseChord(degreeIndex: number) {
   heldMidi.value = [];
 }
 
+function pressPianoNote(note: NoteName) {
+  const midiNote = noteNameToMidi(note, 4);
+  if (!manualNotes.value.has(midiNote)) {
+    const next = new Set(manualNotes.value);
+    next.add(midiNote);
+    manualNotes.value = next;
+  }
+  synth.playChord([midiNote], 0.9);
+  midi.sendChord([midiNote], 0.9);
+}
+
+function releasePianoNote(note: NoteName) {
+  const midiNote = noteNameToMidi(note, 4);
+  if (manualNotes.value.has(midiNote)) {
+    const next = new Set(manualNotes.value);
+    next.delete(midiNote);
+    manualNotes.value = next;
+  }
+  synth.stopChord([midiNote]);
+  midi.stopChord([midiNote]);
+}
+
 function handleKeydown(event: KeyboardEvent) {
   const key = event.key.toLowerCase();
   if (event.repeat) return;
@@ -332,6 +364,7 @@ function handleKeydown(event: KeyboardEvent) {
     midi.stopChord(heldMidi.value);
     activeDegree.value = null;
     heldMidi.value = [];
+    manualNotes.value = new Set();
   }
 }
 
@@ -457,6 +490,7 @@ h1 {
   font-weight: 700;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
   transition: background 0.15s ease, transform 0.08s ease;
+  touch-action: none;
 }
 
 .white-key.active {
@@ -489,6 +523,8 @@ h1 {
   font-size: 12px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.45);
   transition: background 0.15s ease, transform 0.08s ease, color 0.1s ease;
+  touch-action: none;
+  pointer-events: auto;
 }
 
 .black-key.active {
