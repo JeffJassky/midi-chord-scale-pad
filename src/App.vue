@@ -9,84 +9,24 @@
       </p>
     </header>
 
-    <section class="controls">
-      <div class="control-card">
-        <div class="selectors">
-          <label>
-            <span>Root key</span>
-            <select v-model="scaleRoot">
-              <option v-for="note in NOTE_NAMES" :key="note" :value="note">
-                {{ note }}
-              </option>
-            </select>
-          </label>
-          <label>
-            <span>Scale type</span>
-            <select v-model="scaleType">
-              <option v-for="mode in scaleTypes" :key="mode" :value="mode">
-                {{ mode }}
-              </option>
-            </select>
-          </label>
-        </div>
-        <div class="extensions">
-          <p>Extensions (num #1–5)</p>
-          <div class="chips">
-            <button
-              v-for="level in [1, 2, 3, 4, 5]"
-              :key="level"
-              class="chip"
-              :class="{ active: extensionLevel === level }"
-              @click="setExtension(level)"
-            >
-              <span class="chip-label">{{ extensionName(level) }}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div class="wheel-card">
-        <div
-          class="wheel"
-          ref="wheelRef"
-          :style="wheelStyle"
-          @pointermove="onWheelMove"
-          @pointerenter="onWheelMove"
-          @pointerleave="onWheelLeave"
-          @pointerdown="lockQuality"
-        >
-          <div class="wheel-overlay"></div>
-          <div
-            v-for="(qualityId, idx) in CHORD_WHEEL_ORDER"
-            :key="qualityId"
-            class="slice"
-            :style="sliceStyle(idx)"
-            :class="{
-              active: currentQuality.id === qualityId,
-              locked: lockedQualityId === qualityId
-            }"
-          >
-            <span>{{ qualityLabel(qualityId) }}</span>
-          </div>
-          <div class="wheel-center">
-            <p class="muted">Chord quality</p>
-            <p class="big">{{ currentQuality.label }}</p>
-            <button
-              v-if="lockedQualityId"
-              class="ghost"
-              @click.stop="unlockQuality"
-            >
-              Unlock
-            </button>
-            <button v-else class="ghost" @click.stop="lockQuality">Lock</button>
-          </div>
-        </div>
-        <div class="wheel-help">
-          <p class="muted">
-            Hover to select · Click to lock · Esc to reset · Mouse position maps
-            to the 8 chord qualities.
-          </p>
-        </div>
+    <section class="control-card selectors-card">
+      <div class="selectors">
+        <label>
+          <span>Root key</span>
+          <select v-model="scaleRoot">
+            <option v-for="note in NOTE_NAMES" :key="note" :value="note">
+              {{ note }}
+            </option>
+          </select>
+        </label>
+        <label>
+          <span>Scale type</span>
+          <select v-model="scaleType">
+            <option v-for="mode in scaleTypes" :key="mode" :value="mode">
+              {{ mode }}
+            </option>
+          </select>
+        </label>
       </div>
     </section>
 
@@ -128,6 +68,50 @@
       </div>
     </section>
 
+    <section class="wheel-card">
+      <div
+        class="wheel"
+        ref="wheelRef"
+        :style="wheelStyle"
+        @pointermove="onWheelMove"
+        @pointerenter="onWheelMove"
+        @pointerleave="onWheelLeave"
+        @pointerdown="lockQuality"
+      >
+        <div class="wheel-overlay"></div>
+        <div
+          v-for="(qualityId, idx) in CHORD_WHEEL_ORDER"
+          :key="qualityId"
+          class="slice"
+          :style="sliceStyle(idx)"
+          :class="{
+            active: currentQuality.id === qualityId,
+            locked: lockedQualityId === qualityId
+          }"
+        >
+          <span>{{ qualityLabel(qualityId) }}</span>
+        </div>
+        <div class="wheel-center">
+          <p class="muted">Chord quality</p>
+          <p class="big">{{ currentQuality.label }}</p>
+          <button
+            v-if="lockedQualityId"
+            class="ghost"
+            @click.stop="unlockQuality"
+          >
+            Unlock
+          </button>
+          <button v-else class="ghost" @click.stop="lockQuality">Lock</button>
+        </div>
+      </div>
+      <div class="wheel-help">
+        <p class="muted">
+          Hover to select · Click to lock · Esc to reset · Mouse position maps
+          to the 8 chord qualities.
+        </p>
+      </div>
+    </section>
+
     <section class="keyboard-card">
       <p class="label">Play Full Chords</p>
       <div class="keyboard">
@@ -158,6 +142,23 @@
           <p class="plain">
             Web Audio polysynth, optional Web MIDI out when available.
           </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="control-card extensions-card">
+      <p class="muted label">Extensions (num #1–5)</p>
+      <div class="extensions">
+        <div class="chips">
+          <button
+            v-for="level in [1, 2, 3, 4, 5]"
+            :key="level"
+            class="chip"
+            :class="{ active: extensionLevel === level }"
+            @click="setExtension(level)"
+          >
+            <span class="chip-label">{{ extensionName(level) }}</span>
+          </button>
         </div>
       </div>
     </section>
@@ -194,7 +195,7 @@ const scaleTypes: ScaleType[] = [
 
 const scaleRoot = ref<NoteName>('C');
 const scaleType = ref<ScaleType>('Major');
-const extensionLevel = ref<number>(2);
+const extensionLevel = ref<number>(1);
 const hoverQualityId = ref<ChordQualityId>('major');
 const lockedQualityId = ref<ChordQualityId | null>(null);
 const activeDegree = ref<number | null>(null);
@@ -405,7 +406,9 @@ onBeforeUnmount(() => {
   grid-template-columns: 1.6fr 1fr;
   grid-template-areas:
     'hero status'
-    'controls controls'
+    'selectors status'
+    'wheel wheel'
+    'extensions extensions'
     'keyboard keyboard';
 }
 
@@ -416,12 +419,21 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+.selectors-card {
+  grid-area: selectors;
+}
+
 .eyebrow {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 13px;
   color: var(--accent-2);
   margin: 0 0 8px;
+}
+
+button {
+  cursor: pointer;
+  user-select: none;
 }
 
 h1 {
@@ -446,7 +458,9 @@ h1 {
   gap: 6px;
 }
 
-.status .label, .keyboard-card .label{
+.status .label,
+.keyboard-card .label,
+.extensions-card .label {
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -498,6 +512,8 @@ h1 {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
   transition: background 0.15s ease, transform 0.08s ease;
   touch-action: none;
+  user-select: none;
+  cursor: pointer;
 }
 
 .white-key.active {
@@ -532,6 +548,8 @@ h1 {
   transition: background 0.15s ease, transform 0.08s ease, color 0.1s ease;
   touch-action: none;
   pointer-events: auto;
+  user-select: none;
+  cursor: pointer;
 }
 
 .black-key.active {
@@ -539,13 +557,6 @@ h1 {
   color: #0c0e16;
   transform: translate(-50%, -2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.35);
-}
-
-.controls {
-  grid-area: controls;
-  display: grid;
-  gap: 16px;
-  grid-template-columns: 1fr 1.2fr;
 }
 
 .control-card,
@@ -595,7 +606,6 @@ select {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
   color: #fff;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -622,7 +632,12 @@ select {
   margin: 6px 0 0;
 }
 
+.extensions-card {
+  grid-area: extensions;
+}
+
 .wheel-card {
+  grid-area: wheel;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -639,6 +654,7 @@ select {
   overflow: hidden;
   border: 1px solid var(--border);
   z-index: 0;
+  cursor: pointer;
 }
 
 .wheel-overlay {
@@ -725,7 +741,6 @@ select {
   color: #fff;
   padding: 8px 12px;
   border-radius: 10px;
-  cursor: pointer;
 }
 
 .wheel-help {
@@ -804,13 +819,11 @@ select {
     grid-template-columns: 1fr;
     grid-template-areas:
       'hero'
-      'controls'
-      'status'
-      'keyboard';
-  }
-
-  .controls {
-    grid-template-columns: 1fr;
+      'selectors'
+      'wheel'
+      'extensions'
+      'keyboard'
+      'status';
   }
 
   .wheel {
