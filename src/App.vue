@@ -129,15 +129,17 @@
     </section>
 
     <section class="keyboard-card">
+      <p class="label">Play Full Chords</p>
       <div class="keyboard">
         <button
           v-for="(label, idx) in degreeLabels"
           :key="label + idx"
           class="key"
           :class="{ active: activeDegree === idx }"
-          @mousedown="triggerChord(idx)"
-          @mouseup="releaseChord(idx)"
-          @mouseleave="releaseChord(idx)"
+          @pointerdown.prevent="triggerChord(idx)"
+          @pointerup="releaseChord(idx)"
+          @pointerleave="releaseChord(idx)"
+          @pointercancel="releaseChord(idx)"
         >
           <span class="note">{{ label }} {{ currentQuality.label }}</span>
           <span class="degree">{{ idx === 0 ? 'root' : idx + 1 }}</span>
@@ -275,7 +277,7 @@ function onWheelMove(event: PointerEvent) {
 }
 
 function lockQuality() {
-  lockedQualityId.value = currentQualityId.value;
+  lockedQualityId.value = hoverQualityId.value;
 }
 
 function unlockQuality() {
@@ -444,7 +446,7 @@ h1 {
   gap: 6px;
 }
 
-.status .label {
+.status .label, .keyboard-card .label{
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -755,6 +757,8 @@ select {
   color: #fff;
   cursor: pointer;
   transition: transform 0.08s ease, border 0.15s ease, background 0.15s ease;
+  touch-action: none;
+  user-select: none;
 }
 
 .key:hover {
