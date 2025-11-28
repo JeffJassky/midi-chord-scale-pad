@@ -1,52 +1,12 @@
 <template>
   <main class="page">
-    <header class="top">
-      <div>
-        <p class="eyebrow">ScalePad · chord fighter</p>
-        <h1>Build lush, scale-locked chords with a mouse and seven keys.</h1>
-        <p class="lede">
-          Hover the wheel to choose a quality, tap A–J to trigger scale degrees,
-          and raise extensions with 1–5. Everything stays diatonic—no wrong
-          notes.
-        </p>
-      </div>
-      <div class="status">
-        <p class="label">Now playing</p>
-        <p class="value">{{ lastChordName }}</p>
-        <p class="meta">
-          {{ scaleRoot }} · {{ scaleType }} · {{ currentQuality.label }} ·
-          {{ extensionName(extensionLevel) }}
-        </p>
-        <div class="mini-piano" aria-label="virtual keyboard (one octave)">
-          <div class="white-keys">
-            <div
-              v-for="note in WHITE_KEYS"
-              :key="note"
-              class="white-key"
-              :class="{ active: activeMidiNotes.has(note) }"
-              @pointerdown="pressPianoNote(note)"
-              @pointerup="releasePianoNote(note)"
-              @pointerleave="releasePianoNote(note)"
-            >
-              <span>{{ note }}</span>
-            </div>
-          </div>
-          <div class="black-keys">
-            <div
-              v-for="(note, idx) in BLACK_KEYS"
-              :key="note"
-              class="black-key"
-              :class="{ active: activeMidiNotes.has(note) }"
-              :style="{ left: blackKeyLeft(idx) }"
-              @pointerdown.stop="pressPianoNote(note)"
-              @pointerup.stop="releasePianoNote(note)"
-              @pointerleave.stop="releasePianoNote(note)"
-            >
-              <span>{{ note }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <header class="hero">
+      <p class="eyebrow">No Wrong Notes</p>
+      <h1>Explore scale-locked chords</h1>
+      <p class="lede">
+        Select your key, scale, chord quality and extensions, Hover the wheel to
+        choose a quality. Everything stays diatonic.
+      </p>
     </header>
 
     <section class="controls">
@@ -70,7 +30,7 @@
           </label>
         </div>
         <div class="extensions">
-          <p>Extensions (1–5)</p>
+          <p>Extensions (num #1–5)</p>
           <div class="chips">
             <button
               v-for="level in [1, 2, 3, 4, 5]"
@@ -79,13 +39,9 @@
               :class="{ active: extensionLevel === level }"
               @click="setExtension(level)"
             >
-              <span class="chip-key">{{ level }}</span>
               <span class="chip-label">{{ extensionName(level) }}</span>
             </button>
           </div>
-          <p class="muted">
-            1 = triad · 2 = 7th · 3 = 9 · 4 = 9+11 · 5 = 9+11+13
-          </p>
         </div>
       </div>
 
@@ -126,8 +82,48 @@
           </div>
         </div>
         <div class="wheel-help">
-          <p class="muted">Hover to select · Click to lock · Esc to reset</p>
-          <p class="muted">Mouse position maps to the 8 chord qualities.</p>
+          <p class="muted">
+            Hover to select · Click to lock · Esc to reset · Mouse position maps
+            to the 8 chord qualities.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="status">
+      <p class="label">Now playing</p>
+      <p class="value">{{ lastChordName }}</p>
+      <p class="meta">
+        {{ scaleRoot }} · {{ scaleType }} · {{ currentQuality.label }} ·
+        {{ extensionName(extensionLevel) }}
+      </p>
+      <div class="mini-piano" aria-label="virtual keyboard (one octave)">
+        <div class="white-keys">
+          <div
+            v-for="note in WHITE_KEYS"
+            :key="note"
+            class="white-key"
+            :class="{ active: activeMidiNotes.has(note) }"
+            @pointerdown="pressPianoNote(note)"
+            @pointerup="releasePianoNote(note)"
+            @pointerleave="releasePianoNote(note)"
+          >
+            <span>{{ note }}</span>
+          </div>
+        </div>
+        <div class="black-keys">
+          <div
+            v-for="(note, idx) in BLACK_KEYS"
+            :key="note"
+            class="black-key"
+            :class="{ active: activeMidiNotes.has(note) }"
+            :style="{ left: blackKeyLeft(idx) }"
+            @pointerdown.stop="pressPianoNote(note)"
+            @pointerup.stop="releasePianoNote(note)"
+            @pointerleave.stop="releasePianoNote(note)"
+          >
+            <span>{{ note }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -143,15 +139,17 @@
           @mouseup="releaseChord(idx)"
           @mouseleave="releaseChord(idx)"
         >
-          <span class="key-label">{{ DEGREE_KEYS[idx].toUpperCase() }}</span>
-          <span class="note">{{ label }}</span>
-          <span class="degree">{{ idx + 1 }}</span>
+          <span class="note">{{ label }} {{ currentQuality.label }}</span>
+          <span class="degree">{{ idx === 0 ? 'root' : idx + 1 }}</span>
         </button>
       </div>
       <div class="info">
         <div>
           <p class="muted">Keyboard map</p>
-          <p class="plain">A–J for degrees, 1–5 for color, Esc to clear.</p>
+          <p class="plain">
+            Use keys A–J to play chords, number keys 1–5 for color, Esc to
+            clear.
+          </p>
         </div>
         <div>
           <p class="muted">Sound + MIDI</p>
@@ -400,16 +398,20 @@ onBeforeUnmount(() => {
   margin: 0 auto;
   padding: 32px 22px 64px;
   color: #fff;
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 24px;
+  grid-template-columns: 1.6fr 1fr;
+  grid-template-areas:
+    'hero status'
+    'controls controls'
+    'keyboard keyboard';
 }
 
-.top {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: 2fr 1fr;
-  align-items: center;
+.hero {
+  grid-area: hero;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .eyebrow {
@@ -431,6 +433,7 @@ h1 {
 }
 
 .status {
+  grid-area: status;
   background: var(--panel);
   border: 1px solid var(--border);
   padding: 16px;
@@ -463,8 +466,9 @@ h1 {
 .mini-piano {
   position: relative;
   width: 100%;
-  max-width: 420px;
-  height: 88px;
+  --white-height: clamp(72px, 20vw, 120px);
+  --black-height: calc(var(--white-height) * 0.68);
+  height: var(--white-height);
   margin-top: 10px;
 }
 
@@ -485,8 +489,9 @@ h1 {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 6px;
+  padding-bottom: clamp(4px, 1.4vw, 8px);
   color: #111;
+  font-size: clamp(11px, 2vw, 13px);
   font-weight: 700;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
   transition: background 0.15s ease, transform 0.08s ease;
@@ -508,8 +513,8 @@ h1 {
 .black-key {
   position: absolute;
   top: 0;
-  width: calc(100% / 10);
-  height: 58px;
+  width: calc(100% / 7 * 0.68);
+  height: var(--black-height);
   background: linear-gradient(180deg, #111, #2d2d2d);
   border-radius: 0 0 6px 6px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -517,10 +522,10 @@ h1 {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 6px;
+  padding-bottom: clamp(4px, 1.2vw, 8px);
   color: #e0e4ed;
   font-weight: 700;
-  font-size: 12px;
+  font-size: clamp(11px, 1.8vw, 12px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.45);
   transition: background 0.15s ease, transform 0.08s ease, color 0.1s ease;
   touch-action: none;
@@ -535,6 +540,7 @@ h1 {
 }
 
 .controls {
+  grid-area: controls;
   display: grid;
   gap: 16px;
   grid-template-columns: 1fr 1.2fr;
@@ -726,6 +732,7 @@ select {
 }
 
 .keyboard-card {
+  grid-area: keyboard;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -789,13 +796,21 @@ select {
 }
 
 @media (max-width: 900px) {
-  .top,
+  .page {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'hero'
+      'controls'
+      'status'
+      'keyboard';
+  }
+
   .controls {
     grid-template-columns: 1fr;
   }
 
   .wheel {
-    width: min(420px, 92vw);
+    width: min(290px, 92vw);
   }
 }
 </style>
