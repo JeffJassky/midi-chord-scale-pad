@@ -10,6 +10,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "tone": "^15.1.22",
     "vue": "^3.4.27"
   },
   "devDependencies": {

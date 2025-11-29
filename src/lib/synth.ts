@@ -1,99 +1,201 @@
-import { midiToFreq } from './music';
+import * as Tone from 'tone';
+type OscType = Tone.ToneOscillatorType;
 
-interface Voice {
-  osc: OscillatorNode;
-  gain: GainNode;
-  filter: BiquadFilterNode;
-  releaseTimer?: number;
+export type PatchId =
+  | 'warm-saw'
+  | 'bright-square'
+  | 'soft-sine'
+  | 'airy-triangle'
+  | 'piano'
+  | 'silky-pad'
+  | 'glass-bell'
+  | 'plucked-mallet'
+  | 'analog-brass'
+  | 'lofi-keys';
+
+interface SynthPatch {
+  oscType: OscType;
+  filterFreq: number;
+  filterQ: number;
+  attack: number;
+  decay: number;
+  sustain: number;
+  release: number;
+  volume: number;
 }
 
-export class Synth {
-  private ctx: AudioContext | null = null;
-  private master: GainNode | null = null;
-  private voices = new Map<number, Voice>();
-
-  private ensureCtx() {
-    if (!this.ctx) {
-      this.ctx = new AudioContext();
-      this.master = this.ctx.createGain();
-      this.master.gain.value = 0.8;
-      this.master.connect(this.ctx.destination);
-    }
-    if (this.ctx.state === 'suspended') {
-      void this.ctx.resume();
-    }
+const PATCHES: Record<PatchId, SynthPatch> = {
+  'warm-saw': {
+    oscType: 'sawtooth',
+    filterFreq: 1800,
+    filterQ: 0.7,
+    attack: 0.01,
+    decay: 0.18,
+    sustain: 0.55,
+    release: 0.35,
+    volume: -8
+  },
+  'bright-square': {
+    oscType: 'square',
+    filterFreq: 2400,
+    filterQ: 0.6,
+    attack: 0.005,
+    decay: 0.16,
+    sustain: 0.6,
+    release: 0.28,
+    volume: -10
+  },
+  'soft-sine': {
+    oscType: 'sine',
+    filterFreq: 1400,
+    filterQ: 0.9,
+    attack: 0.02,
+    decay: 0.22,
+    sustain: 0.7,
+    release: 0.35,
+    volume: -6
+  },
+  'airy-triangle': {
+    oscType: 'triangle',
+    filterFreq: 2000,
+    filterQ: 1.1,
+    attack: 0.012,
+    decay: 0.2,
+    sustain: 0.58,
+    release: 0.32,
+    volume: -9
+  },
+  piano: {
+    oscType: 'triangle',
+    filterFreq: 2400,
+    filterQ: 0.3,
+    attack: 0.002,
+    decay: 0.28,
+    sustain: 0.08,
+    release: 0.6,
+    volume: -8
+  },
+  'silky-pad': {
+    oscType: 'sawtooth',
+    filterFreq: 1400,
+    filterQ: 1.4,
+    attack: 0.18,
+    decay: 0.42,
+    sustain: 0.7,
+    release: 0.9,
+    volume: -12
+  },
+  'glass-bell': {
+    oscType: 'sine',
+    filterFreq: 3200,
+    filterQ: 0.2,
+    attack: 0.01,
+    decay: 0.5,
+    sustain: 0.4,
+    release: 0.7,
+    volume: -8
+  },
+  'plucked-mallet': {
+    oscType: 'triangle',
+    filterFreq: 2600,
+    filterQ: 0.5,
+    attack: 0.002,
+    decay: 0.24,
+    sustain: 0.1,
+    release: 0.35,
+    volume: -6
+  },
+  'analog-brass': {
+    oscType: 'sawtooth',
+    filterFreq: 1800,
+    filterQ: 1.2,
+    attack: 0.04,
+    decay: 0.2,
+    sustain: 0.65,
+    release: 0.4,
+    volume: -9
+  },
+  'lofi-keys': {
+    oscType: 'square',
+    filterFreq: 1100,
+    filterQ: 0.9,
+    attack: 0.03,
+    decay: 0.18,
+    sustain: 0.6,
+    release: 0.5,
+    volume: -11
   }
+};
+
+export class Synth {
+  private synth: Tone.PolySynth | null = null;
+  private filter: Tone.Filter | null = null;
+  private volume: Tone.Volume | null = null;
+  private currentPatch: SynthPatch = PATCHES['warm-saw'];
 
   playChord(notes: number[], velocity = 0.9) {
-    this.ensureCtx();
-    notes.forEach((midi) => this.triggerVoice(midi, velocity));
+    this.ensureSynth();
+    if (!this.synth) return;
+    const noteNames = this.toNoteNames(notes);
+    this.synth.triggerAttack(noteNames, undefined, velocity);
   }
 
   stopChord(notes?: number[]) {
-    if (!this.ctx) return;
+    if (!this.synth) return;
     if (notes && notes.length) {
-      notes.forEach((midi) => this.releaseVoice(midi));
+      this.synth.triggerRelease(this.toNoteNames(notes));
     } else {
-      Array.from(this.voices.keys()).forEach((midi) => this.releaseVoice(midi));
+      this.synth.releaseAll();
     }
   }
 
-  private triggerVoice(midi: number, velocity: number) {
-    if (!this.ctx || !this.master) return;
-    this.releaseVoice(midi);
-
-    const osc = this.ctx.createOscillator();
-    osc.type = 'sawtooth';
-    const sub = this.ctx.createOscillator();
-    sub.type = 'sine';
-    sub.detune.value = -10;
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 1800;
-    filter.Q.value = 0.7;
-
-    const gain = this.ctx.createGain();
-    gain.gain.setValueAtTime(0, this.ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.8 * velocity, this.ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.55 * velocity, this.ctx.currentTime + 0.2);
-
-    osc.frequency.value = midiToFreq(midi);
-    sub.frequency.value = midiToFreq(midi) / 2;
-
-    osc.connect(filter);
-    sub.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.master);
-
-    osc.start();
-    sub.start();
-
-    this.voices.set(midi, { osc, gain, filter });
+  setPatch(id: PatchId) {
+    this.currentPatch = PATCHES[id] ?? PATCHES['warm-saw'];
+    this.rebuildSynth();
   }
 
-  private releaseVoice(midi: number) {
-    if (!this.ctx) return;
-    const voice = this.voices.get(midi);
-    if (!voice) return;
-
-    if (voice.releaseTimer) {
-      window.clearTimeout(voice.releaseTimer);
+  private ensureSynth() {
+    if (!this.synth) {
+      this.buildSynth();
     }
+    void Tone.start();
+  }
 
-    const { gain, osc, filter } = voice;
-    const now = this.ctx.currentTime;
-    gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(gain.gain.value, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+  private rebuildSynth() {
+    this.disposeSynth();
+    this.buildSynth();
+  }
 
-    voice.releaseTimer = window.setTimeout(() => {
-      osc.stop();
-      gain.disconnect();
-      filter.disconnect();
-      if (this.voices.get(midi) === voice) {
-        this.voices.delete(midi);
+  private buildSynth() {
+    const patch = this.currentPatch;
+    this.volume = new Tone.Volume(patch.volume).toDestination();
+    this.filter = new Tone.Filter(patch.filterFreq, 'lowpass');
+    this.filter.Q.value = patch.filterQ;
+    this.filter.connect(this.volume);
+
+    this.synth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: patch.oscType } as Tone.SynthOptions['oscillator'],
+      envelope: {
+        attack: patch.attack,
+        decay: patch.decay,
+        sustain: patch.sustain,
+        release: patch.release
       }
-    }, 400);
+    });
+    this.synth.connect(this.filter);
+  }
+
+  private disposeSynth() {
+    this.synth?.disconnect();
+    this.synth?.dispose();
+    this.filter?.dispose();
+    this.volume?.dispose();
+    this.synth = null;
+    this.filter = null;
+    this.volume = null;
+  }
+
+  private toNoteNames(notes: number[]) {
+    return notes.map((midi) => Tone.Frequency(midi, 'midi').toNote());
   }
 }

@@ -45,7 +45,7 @@ export interface BuiltChord {
   midi: number[];
 }
 
-export const DEGREE_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j'];
+export const DEGREE_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
 
 export const NOTE_NAMES: NoteName[] = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 

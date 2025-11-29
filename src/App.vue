@@ -12,7 +12,7 @@
     <section class="control-card selectors-card">
       <div class="selectors">
         <label>
-          <span>Root key</span>
+          <span>Key</span>
           <select v-model="scaleRoot">
             <option v-for="note in NOTE_NAMES" :key="note" :value="note">
               {{ note }}
@@ -20,7 +20,7 @@
           </select>
         </label>
         <label>
-          <span>Scale type</span>
+          <span>Mode</span>
           <select v-model="scaleType">
             <option v-for="mode in scaleTypes" :key="mode" :value="mode">
               {{ mode }}
@@ -37,6 +37,20 @@
         {{ scaleRoot }} · {{ scaleType }} · {{ currentQuality.label }} ·
         {{ extensionName(extensionLevel) }}
       </p>
+      <div class="patch-picker">
+        <label>
+          <span>Sound</span>
+          <select v-model="selectedPatch">
+            <option
+              v-for="option in patchOptions"
+              :key="option.id"
+              :value="option.id"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
+      </div>
       <div class="mini-piano" aria-label="virtual keyboard (one octave)">
         <div class="white-keys">
           <div
@@ -126,15 +140,17 @@
           @pointercancel="releaseChord(idx)"
         >
           <span class="note">{{ label }} {{ currentQuality.label }}</span>
-          <span class="degree">{{ idx === 0 ? 'root' : idx + 1 }}</span>
+          <span class="degree">
+            {{ idx === 0 ? 'root' : idx === degreeLabels.length - 1 ? 'octave' : idx + 1 }}
+          </span>
         </button>
       </div>
       <div class="info">
         <div>
           <p class="muted">Keyboard map</p>
           <p class="plain">
-            Use keys A–J to play chords, number keys 1–5 for color, Esc to
-            clear.
+            Use keys A–K to play chords (K for octave), number keys 1–5 for
+            color, Esc to clear.
           </p>
         </div>
         <div>
@@ -179,7 +195,7 @@ import {
   type NoteName,
   type ScaleType
 } from './lib/music';
-import { Synth } from './lib/synth';
+import { Synth, type PatchId } from './lib/synth';
 import { MidiManager } from './lib/midi';
 
 const scaleTypes: ScaleType[] = [
@@ -202,13 +218,30 @@ const activeDegree = ref<number | null>(null);
 const heldMidi = ref<number[]>([]);
 const manualNotes = ref<Set<number>>(new Set());
 const lastChordName = ref<string>('Ready');
+const patchOptions: { id: PatchId; label: string }[] = [
+  { id: 'warm-saw', label: 'Warm Saw' },
+  { id: 'bright-square', label: 'Bright Square' },
+  { id: 'soft-sine', label: 'Soft Sine' },
+  { id: 'airy-triangle', label: 'Airy Triangle' },
+  { id: 'piano', label: 'Piano' },
+  { id: 'silky-pad', label: 'Silky Pad' },
+  { id: 'glass-bell', label: 'Glass Bell' },
+  { id: 'plucked-mallet', label: 'Plucked Mallet' },
+  { id: 'analog-brass', label: 'Analog Brass' },
+  { id: 'lofi-keys', label: 'Lo-Fi Keys' }
+];
+const selectedPatch = ref<PatchId>('warm-saw');
 
 const synth = new Synth();
 const midi = new MidiManager();
 const wheelRef = ref<HTMLElement | null>(null);
 
 const scale = computed(() => buildScale(scaleRoot.value, scaleType.value));
-const degreeLabels = computed(() => scale.value.notes.map((n) => n.name));
+const degreeLabels = computed<string[]>(() => {
+  const labels: string[] = scale.value.notes.map((n) => n.name);
+  const root = scale.value.notes[0]?.name ?? 'Root';
+  return [...labels, `${root} (octave)`];
+});
 const currentQualityId = computed<ChordQualityId>(() => lockedQualityId.value ?? hoverQualityId.value);
 const currentQuality = computed(() => CHORD_QUALITIES.find((q) => q.id === currentQualityId.value)!);
 
@@ -382,6 +415,14 @@ watch([currentQualityId, extensionLevel, scaleRoot, scaleType], () => {
   triggerChord(activeDegree.value);
 });
 
+watch(
+  selectedPatch,
+  (id) => {
+    synth.setPatch(id);
+  },
+  { immediate: true }
+);
+
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('keyup', handleKeyup);
@@ -477,6 +518,10 @@ h1 {
 .status .meta {
   margin: 0;
   color: var(--muted);
+}
+
+.patch-picker {
+  margin-top: 6px;
 }
 
 .mini-piano {
@@ -767,7 +812,9 @@ select {
   border-radius: 14px;
   padding: 12px;
   display: flex;
+  gap: 8px;
   align-items: center;
+  flex-direction: column;
   justify-content: space-between;
   color: #fff;
   cursor: pointer;
@@ -793,7 +840,7 @@ select {
 
 .note {
   color: #fff;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .degree {
